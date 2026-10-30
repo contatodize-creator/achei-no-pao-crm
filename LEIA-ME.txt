@@ -1,0 +1,10 @@
+ACHEI NO PÃO CRM — PUBLICAÇÃO
+
+1. Publique os arquivos index.html e vercel.json na raiz de um repositório GitHub privado.
+2. No Vercel, New Project > Import Git Repository > escolha o repositório.
+3. Framework Preset: Other; Root Directory: ./; Deploy.
+4. No Supabase, Authentication > URL Configuration, configure Site URL com o endereço HTTPS do Vercel e adicione https://SEU-ENDERECO.vercel.app/** em Redirect URLs.
+5. No Supabase, Authentication > Providers > Email, confira se o provedor de e-mail está ativo.
+6. Faça teste de cadastro e confirmação de e-mail.
+
+OBS: Esta versão usa bibliotecas Supabase por CDN; se o navegador bloquear as CDNs, a conexão pode falhar. Não há chave secreta no HTML.
