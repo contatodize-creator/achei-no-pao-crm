@@ -44,10 +44,21 @@ create table if not exists public.ap_tasks (
  notes text,
  created_at timestamptz not null default now()
 );
-do $$ declare t text; begin
+-- Compatibilidade com tabelas preexistentes que utilizam owner_id.
+-- Não remove colunas, tabelas ou registros.
+do $$
+declare t text; col text;
+begin
  foreach t in array array['ap_leads','ap_bakeries','ap_deliveries','ap_tasks'] loop
+  select column_name into col from information_schema.columns
+   where table_schema='public' and table_name=t and column_name in ('owner_id','user_id')
+   order by case when column_name='owner_id' then 0 else 1 end limit 1;
+  if col is null then
+   execute format('alter table public.%I add column user_id uuid default auth.uid()',t);
+   col := 'user_id';
+  end if;
   execute format('alter table public.%I enable row level security',t);
   execute format('drop policy if exists owner_access on public.%I',t);
-  execute format('create policy owner_access on public.%I for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid())',t);
+  execute format('create policy owner_access on public.%I for all to authenticated using (%I = auth.uid()) with check (%I = auth.uid())',t,col,col);
  end loop;
 end $$;
