@@ -52,35 +52,6 @@ $('resetOpsChecklist').onclick=()=>{if(!confirm('Reiniciar todas as marcações 
 renderOps();
 
 
-const FOLLOWUP_STEPS=[
-['contrato','Contrato confirmado','Comercial'],
-['cobranca','Pagamento e condições conferidos','Financeiro'],
-['boas_vindas','Kit de boas-vindas enviado','Atendimento'],
-['materiais','Logo e informações recebidos','Atendimento'],
-['arte_criada','Arte gratuita preparada','Arte'],
-['cliente_aprovou','Cliente conferiu e aprovou a arte','Atendimento'],
-['franquia_aprovou','Franquia validou tecnicamente a arte','Arte / franquia'],
-['ocupacao','90% dos módulos preenchidos e caixa conferido','Gestão'],
-['producao','Produção autorizada e acompanhada','Operação'],
-['distribuicao','Distribuição registrada e comprovada','Operação'],
-['pos_venda','Cliente informado da circulação','Relacionamento'],
-['renovacao','Renovação acompanhada e negociada','Comercial']
-];
-function renderFollowup(){
- const sel=$('followupOrder');if(!sel)return;const chosen=sel.value;
- sel.innerHTML='<option value="">Selecione um pedido</option>'+orders.filter(o=>o.status!=='cancelado').map(o=>{const c=clients.find(x=>x.id===o.client_id),camp=campaigns.find(x=>x.id===o.campaign_id);return '<option value="'+esc(o.id)+'">'+esc(c?.company_name||'Cliente')+' — '+esc(camp?.name||'Campanha')+' ('+esc(o.status)+')</option>'}).join('');
- if(orders.some(o=>o.id===chosen&&o.status!=='cancelado'))sel.value=chosen;
- const id=sel.value,root=$('followupSteps'),summary=$('followupSummary');
- if(!id){root.innerHTML='<div class="notice">Selecione um pedido para abrir seu checklist.</div>';summary.innerHTML='';return}
- const rows=workflowRows.filter(w=>w.order_id===id),today=new Date().toISOString().slice(0,10);
- const done=FOLLOWUP_STEPS.filter(([k])=>rows.some(w=>w.step_key===k&&w.done)).length;
- const overdue=rows.filter(w=>!w.done&&w.due_on&&w.due_on<today).length;
- summary.innerHTML='<div class="metric">Etapas concluídas<strong>'+done+'/'+FOLLOWUP_STEPS.length+'</strong></div><div class="metric">Prazos vencidos<strong>'+overdue+'</strong></div><div class="metric">Próxima ação<strong style="font-size:15px">'+esc(FOLLOWUP_STEPS.find(([k])=>!rows.some(w=>w.step_key===k&&w.done))?.[1]||'Todas concluídas')+'</strong></div>';
- root.innerHTML=FOLLOWUP_STEPS.map(([key,label,owner],i)=>{const w=rows.find(x=>x.step_key===key),late=!w?.done&&w?.due_on&&w.due_on<today;return '<form data-followup-form="'+esc(key)+'" class="item" style="display:block;border-left:4px solid '+(w?.done?'#16834d':late?'#c43d2b':'#e9b73b')+'"><div class="row" style="justify-content:space-between"><label style="font-size:15px"><input type="checkbox" name="done" '+(w?.done?'checked':'')+' style="width:auto;margin-right:8px"> '+(i+1)+'. '+label+'</label><span class="badge">'+(w?.done?'Concluído':late?'Atrasado':'Pendente')+'</span></div><div class="fields"><div><label>Responsável</label><input name="responsible" value="'+esc(w?.responsible||owner)+'" placeholder="Nome de quem cuida"></div><div><label>Prazo</label><input type="date" name="due_on" value="'+esc(w?.due_on||'')+'"></div></div><label>Observações / comprovante / próximo contato</label><textarea name="notes" rows="2" placeholder="Anote o que foi feito e o que falta">'+esc(w?.notes||'')+'</textarea><button type="submit">Salvar etapa</button></form>'}).join('')
-}
-$('followupOrder').onchange=renderFollowup;
-$('followupSteps').onsubmit=async e=>{const form=e.target.closest('form[data-followup-form]');if(!form)return;e.preventDefault();const order_id=$('followupOrder').value,key=form.dataset.followupForm,old=workflowRows.find(w=>w.order_id===order_id&&w.step_key===key);const patch={done:form.elements.done.checked,responsible:form.elements.responsible.value.trim(),due_on:form.elements.due_on.value||null,notes:form.elements.notes.value.trim(),completed_at:form.elements.done.checked?(old?.completed_at||new Date().toISOString()):null,updated_at:new Date().toISOString()};const button=form.querySelector('button[type=submit]');button.disabled=true;try{let result;if(old)result=await sb.from('ap_order_workflow').update(patch).eq('id',old.id).select().single();else result=await sb.from('ap_order_workflow').insert({...patch,order_id,step_key:key}).select().single();if(result.error)throw result.error;workflowRows=old?workflowRows.map(w=>w.id===old.id?result.data:w):[...workflowRows,result.data];renderFollowup();flash('Etapa salva no CRM.')}catch(err){flash('Não foi possível salvar: '+err.message,true)}finally{button.disabled=false}};
-
 const URL='https://salyqibpdfmeuhtjctms.supabase.co',KEY='sb_publishable_rXm991l7lqgHRlFQ0hcCFQ_4N_Akuoy';
 let sb=null;try{sb=createClient(URL,KEY);}catch(error){document.addEventListener('DOMContentLoaded',()=>{document.getElementById('authMessage').textContent='Falha ao iniciar a conexão: '+error.message;});}let user=null,clients=[],campaigns=[],orders=[],spaces=[],installments=[],summaries=[],leads=[],bakeries=[],deliveries=[],tasks=[],selected=new Set();
 const $=id=>document.getElementById(id),money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -153,6 +124,35 @@ $('pipelineBoard').onchange=e=>{const id=e.target.dataset.lead;if(id)update('ap_
 $('pipelineBoard').onclick=e=>{const id=e.target.dataset.leadEdit;if(!id)return;const l=leads.find(x=>x.id===id);if(!l)return;const note=prompt('Observações da negociação',l.notes||'');if(note===null)return;const date=prompt('Próximo contato (AAAA-MM-DD, ou deixe vazio)',l.next_contact||'');if(date===null)return;if(date&&!/^\d{4}-\d{2}-\d{2}$/.test(date)){flash('Data inválida.',true);return;}update('ap_leads',id,{notes:note,next_contact:date||null}).then(load).catch(x=>flash(x.message,true));};
 $('taskList').onclick=e=>{const id=e.target.dataset.task;if(!id)return;const t=tasks.find(x=>x.id===id);update('ap_tasks',id,{done:!t.done}).then(load).catch(x=>flash(x.message,true));};
 $('deliveryList').onclick=e=>{const id=e.target.dataset.delivery;if(!id)return;const d=deliveries.find(x=>x.id===id);update('ap_deliveries',id,{status:d.status==='entregue'?'planejada':'entregue'}).then(load).catch(x=>flash(x.message,true));};
+const FOLLOWUP_STEPS=[
+['contrato','Contrato confirmado','Comercial'],
+['cobranca','Pagamento e condições conferidos','Financeiro'],
+['boas_vindas','Kit de boas-vindas enviado','Atendimento'],
+['materiais','Logo e informações recebidos','Atendimento'],
+['arte_criada','Arte gratuita preparada','Arte'],
+['cliente_aprovou','Cliente conferiu e aprovou a arte','Atendimento'],
+['franquia_aprovou','Franquia validou tecnicamente a arte','Arte / franquia'],
+['ocupacao','90% dos módulos preenchidos e caixa conferido','Gestão'],
+['producao','Produção autorizada e acompanhada','Operação'],
+['distribuicao','Distribuição registrada e comprovada','Operação'],
+['pos_venda','Cliente informado da circulação','Relacionamento'],
+['renovacao','Renovação acompanhada e negociada','Comercial']
+];
+function renderFollowup(){
+ const sel=$('followupOrder');if(!sel)return;const chosen=sel.value;
+ sel.innerHTML='<option value="">Selecione um pedido</option>'+orders.filter(o=>o.status!=='cancelado').map(o=>{const c=clients.find(x=>x.id===o.client_id),camp=campaigns.find(x=>x.id===o.campaign_id);return '<option value="'+esc(o.id)+'">'+esc(c?.company_name||'Cliente')+' — '+esc(camp?.name||'Campanha')+' ('+esc(o.status)+')</option>'}).join('');
+ if(orders.some(o=>o.id===chosen&&o.status!=='cancelado'))sel.value=chosen;
+ const id=sel.value,root=$('followupSteps'),summary=$('followupSummary');
+ if(!id){root.innerHTML='<div class="notice">Selecione um pedido para abrir seu checklist.</div>';summary.innerHTML='';return}
+ const rows=workflowRows.filter(w=>w.order_id===id),today=new Date().toISOString().slice(0,10);
+ const done=FOLLOWUP_STEPS.filter(([k])=>rows.some(w=>w.step_key===k&&w.done)).length;
+ const overdue=rows.filter(w=>!w.done&&w.due_on&&w.due_on<today).length;
+ summary.innerHTML='<div class="metric">Etapas concluídas<strong>'+done+'/'+FOLLOWUP_STEPS.length+'</strong></div><div class="metric">Prazos vencidos<strong>'+overdue+'</strong></div><div class="metric">Próxima ação<strong style="font-size:15px">'+esc(FOLLOWUP_STEPS.find(([k])=>!rows.some(w=>w.step_key===k&&w.done))?.[1]||'Todas concluídas')+'</strong></div>';
+ root.innerHTML=FOLLOWUP_STEPS.map(([key,label,owner],i)=>{const w=rows.find(x=>x.step_key===key),late=!w?.done&&w?.due_on&&w.due_on<today;return '<form data-followup-form="'+esc(key)+'" class="item" style="display:block;border-left:4px solid '+(w?.done?'#16834d':late?'#c43d2b':'#e9b73b')+'"><div class="row" style="justify-content:space-between"><label style="font-size:15px"><input type="checkbox" name="done" '+(w?.done?'checked':'')+' style="width:auto;margin-right:8px"> '+(i+1)+'. '+label+'</label><span class="badge">'+(w?.done?'Concluído':late?'Atrasado':'Pendente')+'</span></div><div class="fields"><div><label>Responsável</label><input name="responsible" value="'+esc(w?.responsible||owner)+'" placeholder="Nome de quem cuida"></div><div><label>Prazo</label><input type="date" name="due_on" value="'+esc(w?.due_on||'')+'"></div></div><label>Observações / comprovante / próximo contato</label><textarea name="notes" rows="2" placeholder="Anote o que foi feito e o que falta">'+esc(w?.notes||'')+'</textarea><button type="submit">Salvar etapa</button></form>'}).join('')
+}
+$('followupOrder').onchange=renderFollowup;
+$('followupSteps').onsubmit=async e=>{const form=e.target.closest('form[data-followup-form]');if(!form)return;e.preventDefault();const order_id=$('followupOrder').value,key=form.dataset.followupForm,old=workflowRows.find(w=>w.order_id===order_id&&w.step_key===key);const patch={done:form.elements.done.checked,responsible:form.elements.responsible.value.trim(),due_on:form.elements.due_on.value||null,notes:form.elements.notes.value.trim(),completed_at:form.elements.done.checked?(old?.completed_at||new Date().toISOString()):null,updated_at:new Date().toISOString()};const button=form.querySelector('button[type=submit]');button.disabled=true;try{let result;if(old)result=await sb.from('ap_order_workflow').update(patch).eq('id',old.id).select().single();else result=await sb.from('ap_order_workflow').insert({...patch,order_id,step_key:key}).select().single();if(result.error)throw result.error;workflowRows=old?workflowRows.map(w=>w.id===old.id?result.data:w):[...workflowRows,result.data];renderFollowup();flash('Etapa salva no CRM.')}catch(err){flash('Não foi possível salvar: '+err.message,true)}finally{button.disabled=false}};
+
 $('artworkList').onchange=e=>{const id=e.target.dataset.artwork;if(id)update('ap_orders',id,{art_status:e.target.value}).then(load).catch(x=>flash(x.message,true));};
 Object.keys(models).forEach(m=>{let o=document.createElement('option');o.value=m;o.textContent=m.replace('-',' kg · ')+' espaços';$('newModel').append(o)});
 if(!sb){$('authMessage').innerHTML='<div class="notice error">A biblioteca de conexão não carregou. Verifique a rede e tente novamente pelo endereço HTTPS do CRM.</div>';}else{sb.auth.onAuthStateChange((_event,session)=>{let next=session?.user||null,changed=next?.id!==user?.id;user=next;authView();if(user&&changed)load();if(!user){clients=[];campaigns=[];orders=[];spaces=[];installments=[];summaries=[];}});sb.auth.getSession().then(({data})=>{user=data.session?.user||null;authView();if(user)load();});}
