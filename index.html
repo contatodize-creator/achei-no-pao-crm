@@ -17,7 +17,7 @@
 <button data-tab="campaigns">Campanhas</button>
 <button data-tab="artworks">Artes</button>
 <button data-tab="orderFollowup">Acompanhamento de pedidos</button>
-<button data-tab="duoSimulator">Simular 30/60 mil</button> <button data-tab="seasonPlan">Planejamento da temporada</button>
+<button data-tab="duoSimulator">Simular clientes e renovações</button> <button data-tab="seasonPlan">Planejamento da temporada</button>
 <button data-tab="consumption">Consumo e estoque</button>
 <button data-tab="operationsPlan">Cronograma operacional</button>
 <button data-tab="operationGuide">Plano do negócio / Imprimir</button>
@@ -66,7 +66,7 @@
 <p class="foot">Gestão comercial online. Os módulos adicionais exigem executar a migração supabase-modulos.sql no Supabase. Anexos de artes ainda não disponíveis.</p></div></main>
 <script type="module">
 import { createClient } from "@supabase/supabase-js";
-import { mountDualSimulator } from "./simulador-duplo.js";
+import { mountCarteiraSimulator } from "./simulador-carteira.js";
 
 'use strict';
 
@@ -100,7 +100,7 @@ const PRICE_PACKAGES={
 '7':{1:1190,2:1790,4:2920,6:3870,8:4680,10:5200,12:5700,14:6090,16:6240,18:6300}
 };
 function flash(s,bad=false){const target= user ? $('message') : $('authMessage');target.innerHTML=`<div class="notice ${bad?'error':'ok'}">${esc(s)}</div>`;target.scrollIntoView({block:'nearest',behavior:'smooth'});}
-function show(tab){if(tab==="duoSimulator"&&window.renderDuoSimulator)window.renderDuoSimulator();if(window.matchMedia('(max-width:700px)').matches&&document.querySelector('.nav-secondary [data-tab="'+tab+'"]'))$('navMore').open=true;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('hide',e.id!==tab));document.querySelectorAll('[data-tab]').forEach(e=>e.classList.toggle('active',e.dataset.tab===tab));}
+function show(tab){if(tab==="duoSimulator"&&window.renderCarteiraSimulator)window.renderCarteiraSimulator();if(window.matchMedia('(max-width:700px)').matches&&document.querySelector('.nav-secondary [data-tab="'+tab+'"]'))$('navMore').open=true;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('hide',e.id!==tab));document.querySelectorAll('[data-tab]').forEach(e=>e.classList.toggle('active',e.dataset.tab===tab));}
 function authView(){ $('login').classList.toggle('hide',!!user);$('app').classList.toggle('hide',!user);$('logout').classList.toggle('hide',!user);$('identity').textContent=user?.email||'';}
 async function query(table,opts={}){let q=sb.from(table).select(opts.select||'*');if(opts.order)q=q.order(opts.order,{ascending:false});const {data,error}=await q;if(error)throw error;return data||[];}
 let workflowRows=[];let consumption=[];async function load(){if(!user)return;try{[clients,campaigns,orders,spaces,installments,summaries]=await Promise.all([query('ap_clients',{order:'created_at'}),query('ap_campaigns',{order:'created_at'}),query('ap_orders',{order:'created_at'}),query('ap_order_spaces'),query('ap_installments'),query('ap_campaign_summary')]);try{[leads,bakeries,deliveries,tasks]=await Promise.all([query('ap_leads',{order:'created_at'}),query('ap_bakeries',{order:'created_at'}),query('ap_deliveries',{order:'created_at'}),query('ap_tasks',{order:'created_at'})]);}catch(extra){leads=[];bakeries=[];deliveries=[];tasks=[];flash('Módulos novos ainda não ativados no banco. Execute o arquivo supabase-modulos.sql no SQL Editor do Supabase. Detalhes: '+extra.message,true);}try{consumption=await query('ap_bakery_consumption');}catch(err){consumption=[];flash('Execute supabase-consumo.sql no Supabase para ativar o consumo. '+err.message,true);}try{workflowRows=await query('ap_order_workflow')}catch(w){workflowRows=[];flash('Falha ao carregar o acompanhamento: '+w.message,true)}render();renderFollowup();}catch(e){flash('Não foi possível carregar os dados: '+e.message,true);}}
@@ -322,5 +322,5 @@ $('dailyAlerts').innerHTML=rows.length?rows.join(''):'<p class="muted">Nenhuma p
 }
 document.getElementById('dashboard').addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;show(b.dataset.go);const focus=b.dataset.focus&&$(b.dataset.focus);if(focus){focus.scrollIntoView({behavior:'smooth',block:'start'});focus.querySelector('input,select')?.focus({preventScroll:true});}else window.scrollTo({top:0,behavior:'smooth'});});
 
-mountDualSimulator(()=>({campaigns,orders,spaces,installments}));
+mountCarteiraSimulator();
 </script></body></html>
