@@ -6,7 +6,7 @@ const money=x=>Number(x||0).toLocaleString('pt-BR',{style:'currency',currency:'B
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const positive=x=>Math.max(0,Number(x)||0);
 const key='acheinopao_dual_campaign_v2';
-const defaults=()=>({model:'5',qty1:30,qty2:30,capacity:34,laterals:2,extra:30,extra40:15,extra50:23,prices:{...BASE},cost1:7590,cost2:7590,other1:500,other2:500,cam1:'',cam2:'',rows:[]});
+const defaults=()=>({model:'5',qty1:30,qty2:30,capacity:34,laterals:2,extra:45,extra40:30,extra50:35,prices:{...BASE},cost1:7590,cost2:7590,other1:500,other2:500,cam1:'',cam2:'',rows:[]});
 let state=defaults();
 try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x)state={...state,...x,prices:{...BASE,...x.prices},rows:Array.isArray(x.rows)?x.rows:[]}}catch{}
 const save=()=>{try{localStorage.setItem(key,JSON.stringify(state))}catch{}};
